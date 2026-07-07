@@ -117,7 +117,7 @@ grid(col = "grey90")
 # ---------------------------------------------------------------------------
 # Histograms with overlaid kernel density curves are plotted to examine the
 # distribution of each EEG signal. This helps assess symmetry, skewness,
-# and whether the signals approximate a Gaussian distribution.
+# and whether the signals approximate a Gaussian distribution...
 
 par(mfrow = c(3, 2), mar = c(4, 4, 3, 1))
 
@@ -175,7 +175,7 @@ cat("\n")
 # ---------------------------------------------------------------------------
 # We compute the Pearson correlation coefficients between each pair of input
 # signals and the output signal y. Scatter plots with linear regression lines
-# are produced to visualise dependencies.
+# are produced to visualise dependencies...
 
 # Correlation matrix of all signals
 all_signals <- data.frame(x1 = x1, x2 = x2, x3 = x3, x4 = x4, y = y)
@@ -990,3 +990,7 @@ if (n_accepted > 0) {
 cat("\n============================================\n")
 cat("ANALYSIS COMPLETE\n")
 cat("============================================\n")
+
+# ---------------------------------------------------------------------------
+# Prepared By Rohit Jha
+# ---------------------------------------------------------------------------
