@@ -382,7 +382,7 @@ theta_hats <- list() # Store estimated parameters for each model
 
 for (i in 1:5) {
      X_mat <- model_designs[[i]]
-     # Compute OLS estimate: theta_hat = (X'X)^{-1} X'y
+     # Compute OLS estimate: theta_hat = (X^T X)^{-1} X^T y
      theta_hat <- solve(t(X_mat) %*% X_mat) %*% t(X_mat) %*% y
      theta_hats[[i]] <- theta_hat
 
@@ -536,7 +536,7 @@ cat("\n")
 # ---------------------------------------------------------------------------
 # Task 2.6: Model Selection
 # ---------------------------------------------------------------------------
-# We select the best model based on:
+# We select the preferred model based on:
 #   (1) Lowest AIC value (penalises complexity less strongly)
 #   (2) Lowest BIC value (penalises complexity more strongly)
 #   (3) Residual distribution closest to Gaussian (from Q-Q plots and
@@ -544,41 +544,41 @@ cat("\n")
 
 cat("--- Task 2.6: Model Selection ---\n\n")
 
-best_aic <- which.min(AIC_vals)
-best_bic <- which.min(BIC_vals)
+preferred_aic <- which.min(AIC_vals)
+preferred_bic <- which.min(BIC_vals)
 
 cat(sprintf(
      "Model with lowest AIC: %s (AIC = %.4f)\n",
-     model_names[best_aic], AIC_vals[best_aic]
+     model_names[preferred_aic], AIC_vals[preferred_aic]
 ))
 cat(sprintf(
      "Model with lowest BIC: %s (BIC = %.4f)\n",
-     model_names[best_bic], BIC_vals[best_bic]
+     model_names[preferred_bic], BIC_vals[preferred_bic]
 ))
 
-# Determine the selected best model
-# If AIC and BIC agree, that is the best model; otherwise, we prefer BIC
+# Determine the selected preferred model
+# If AIC and BIC agree, that is the preferred model; otherwise, we prefer BIC
 # as it imposes a stronger penalty for model complexity.
-if (best_aic == best_bic) {
-     best_model <- best_aic
-     cat(sprintf("\nBoth AIC and BIC agree: %s is the best model.\n", model_names[best_model]))
+if (preferred_aic == preferred_bic) {
+     preferred_model <- preferred_aic
+     cat(sprintf("\nBoth AIC and BIC agree: %s is the preferred model.\n", model_names[preferred_model]))
 } else {
-     best_model <- best_bic
+     preferred_model <- preferred_bic
      cat(sprintf(
           "\nAIC and BIC disagree. Selecting %s (BIC preference) as the ",
-          model_names[best_model]
+          model_names[preferred_model]
      ))
      cat("BIC criterion applies a stronger penalty for model complexity,\n")
      cat("which helps prevent overfitting.\n")
 }
 
-cat(sprintf("\n*** SELECTED BEST MODEL: %s ***\n", model_names[best_model]))
+cat(sprintf("\n*** SELECTED PREFERRED MODEL: %s ***\n", model_names[preferred_model]))
 cat("Justification:\n")
 cat(sprintf(
      "  - %s achieves the lowest AIC (%.4f) and BIC (%.4f) among\n",
-     model_names[best_model], AIC_vals[best_model], BIC_vals[best_model]
+     model_names[preferred_model], AIC_vals[preferred_model], BIC_vals[preferred_model]
 ))
-cat("    all candidate models, indicating the best trade-off between\n")
+cat("    all candidate models, indicating the optimal trade-off between\n")
 cat("    goodness-of-fit and model complexity.\n")
 cat("  - The Q-Q plot of residuals for this model shows points lying\n")
 cat("    closest to the theoretical normal line, confirming that the\n")
@@ -610,12 +610,12 @@ n_test <- length(test_indices)
 cat(sprintf("Training set: %d samples (%.0f%%)\n", n_train, 100 * n_train / n))
 cat(sprintf("Testing set:  %d samples (%.0f%%)\n\n", n_test, 100 * n_test / n))
 
-# Extract training and testing data for the selected best model
-X_best <- model_designs[[best_model]]
+# Extract training and testing data for the selected preferred model
+X_preferred <- model_designs[[preferred_model]]
 
-X_train <- X_best[train_indices, ]
+X_train <- X_preferred[train_indices, ]
 y_train <- y[train_indices]
-X_test <- X_best[test_indices, ]
+X_test <- X_preferred[test_indices, ]
 y_test <- y[test_indices]
 
 # Step 1: Re-estimate model parameters using only the training data
@@ -625,7 +625,7 @@ cat("Re-estimated parameters using training data:\n")
 for (j in 1:length(theta_hat_train)) {
      cat(sprintf(
           "  theta_%d (%s) = %.6f\n", j,
-          colnames(X_best)[j], theta_hat_train[j]
+          colnames(X_preferred)[j], theta_hat_train[j]
      ))
 }
 cat("\n")
@@ -636,8 +636,8 @@ y_pred_test <- X_test %*% theta_hat_train
 # Compute training RSS and estimated variance for confidence intervals
 y_pred_train <- X_train %*% theta_hat_train
 RSS_train <- sum((y_train - y_pred_train)^2)
-k_best <- length(theta_hat_train)
-sigma2_train <- RSS_train / (n_train - k_best) # Unbiased variance estimate
+k_preferred <- length(theta_hat_train)
+sigma2_train <- RSS_train / (n_train - k_preferred) # Unbiased variance estimate
 sigma_train <- sqrt(sigma2_train)
 
 cat(sprintf("Training RSS: %.6f\n", RSS_train))
@@ -654,15 +654,15 @@ cat(sprintf("Testing RSS: %.6f\n", RSS_test))
 # This accounts for both parameter uncertainty and noise variance.
 
 alpha <- 0.05
-t_crit <- qt(1 - alpha / 2, df = n_train - k_best)
+t_crit <- qt(1 - alpha / 2, df = n_train - k_preferred)
 
-XtX_inv <- solve(t(X_train) %*% X_train) # (X'X)^{-1}
+XtX_inv <- solve(t(X_train) %*% X_train) # (X^T X)^{-1}
 
 # Calculate the prediction standard error for each test point
 pred_se <- numeric(n_test)
 for (i in 1:n_test) {
      x_i <- matrix(X_test[i, ], ncol = 1)
-     # Prediction variance = sigma^2 * (1 + x_i' (X'X)^{-1} x_i)
+     # CI: y_hat +/- t_{alpha/2} * sigma * sqrt(1 + x^T (X^T X)^{-1} x)
      pred_var_i <- sigma2_train * (1 + t(x_i) %*% XtX_inv %*% x_i)
      pred_se[i] <- sqrt(pred_var_i)
 }
@@ -671,7 +671,7 @@ for (i in 1:n_test) {
 CI_lower <- y_pred_test - t_crit * pred_se
 CI_upper <- y_pred_test + t_crit * pred_se
 
-cat(sprintf("Critical t-value (alpha=0.05, df=%d): %.4f\n\n", n_train - k_best, t_crit))
+cat(sprintf("Critical t-value (alpha=0.05, df=%d): %.4f\n\n", n_train - k_preferred, t_crit))
 
 # Plot: Predictions vs Actual Test Data with 95% Confidence Intervals
 par(mfrow = c(1, 1), mar = c(5, 5, 4, 2))
@@ -684,7 +684,7 @@ plot(plot_x, y_test[sort_order],
      pch = 16, cex = 0.9, col = "steelblue",
      ylim = range(c(CI_lower, CI_upper, y_test)),
      xlab = "Test Sample Index", ylab = "Amplitude",
-     main = paste("Model Prediction with 95% CI -", model_names[best_model])
+     main = paste("Model Prediction with 95% CI -", model_names[preferred_model])
 )
 
 # Plot predicted values
@@ -731,18 +731,18 @@ cat("============================================\n\n")
 # values in the selected model's least squares estimates.
 
 # Step 1: Identify the 2 parameters with the largest absolute values
-theta_best <- theta_hats[[best_model]]
-abs_theta <- abs(as.numeric(theta_best))
+theta_preferred <- theta_hats[[preferred_model]]
+abs_theta <- abs(as.numeric(theta_preferred))
 param_order <- order(abs_theta, decreasing = TRUE)
 top2_indices <- param_order[1:2]
-fixed_indices <- setdiff(1:length(theta_best), top2_indices)
+fixed_indices <- setdiff(1:length(theta_preferred), top2_indices)
 
 cat("Parameter magnitudes (absolute values):\n")
-for (j in 1:length(theta_best)) {
+for (j in 1:length(theta_preferred)) {
      marker <- ifelse(j %in% top2_indices, " <-- SELECTED", "")
      cat(sprintf(
           "  theta_%d (%s): |%.6f| = %.6f%s\n",
-          j, colnames(X_best)[j], theta_best[j], abs_theta[j], marker
+          j, colnames(X_preferred)[j], theta_preferred[j], abs_theta[j], marker
      ))
 }
 cat("\n")
@@ -753,11 +753,11 @@ cat(sprintf(
 ))
 cat(sprintf(
      "  theta_%d (%s) = %.6f\n",
-     top2_indices[1], colnames(X_best)[top2_indices[1]], theta_best[top2_indices[1]]
+     top2_indices[1], colnames(X_preferred)[top2_indices[1]], theta_preferred[top2_indices[1]]
 ))
 cat(sprintf(
      "  theta_%d (%s) = %.6f\n\n",
-     top2_indices[2], colnames(X_best)[top2_indices[2]], theta_best[top2_indices[2]]
+     top2_indices[2], colnames(X_preferred)[top2_indices[2]], theta_preferred[top2_indices[2]]
 ))
 
 # Step 2: Define uniform priors around the LS estimates
@@ -770,10 +770,10 @@ prior_half_width_2 <- 3 * abs_theta[top2_indices[2]]
 prior_half_width_1 <- max(prior_half_width_1, 0.5)
 prior_half_width_2 <- max(prior_half_width_2, 0.5)
 
-prior_lower_1 <- as.numeric(theta_best[top2_indices[1]]) - prior_half_width_1
-prior_upper_1 <- as.numeric(theta_best[top2_indices[1]]) + prior_half_width_1
-prior_lower_2 <- as.numeric(theta_best[top2_indices[2]]) - prior_half_width_2
-prior_upper_2 <- as.numeric(theta_best[top2_indices[2]]) + prior_half_width_2
+prior_lower_1 <- as.numeric(theta_preferred[top2_indices[1]]) - prior_half_width_1
+prior_upper_1 <- as.numeric(theta_preferred[top2_indices[1]]) + prior_half_width_1
+prior_lower_2 <- as.numeric(theta_preferred[top2_indices[2]]) - prior_half_width_2
+prior_upper_2 <- as.numeric(theta_preferred[top2_indices[2]]) + prior_half_width_2
 
 cat(sprintf(
      "Prior for theta_%d: Uniform[%.4f, %.4f]\n",
@@ -791,13 +791,13 @@ cat(sprintf(
 #   (c) Compute y_sim = X * theta_new
 #   (d) Compute RSS_sim = sum((y - y_sim)^2)
 #   (e) Accept the sample if RSS_sim < epsilon
-# The threshold epsilon is set based on the best model's RSS from Task 2.2.
+# The threshold epsilon is set based on the preferred model's RSS from Task 2.2.
 
 N_samples <- 100000 # Total number of prior samples to draw
-epsilon <- RSS_vals[best_model] * 2 # Acceptance threshold
+epsilon <- RSS_vals[preferred_model] * 2 # Acceptance threshold
 
 cat(sprintf("Number of prior samples: %d\n", N_samples))
-cat(sprintf("RSS of best model: %.6f\n", RSS_vals[best_model]))
+cat(sprintf("RSS of preferred model: %.6f\n", RSS_vals[preferred_model]))
 cat(sprintf("Acceptance threshold (epsilon = 2 * RSS): %.6f\n\n", epsilon))
 
 set.seed(123) # For reproducibility
@@ -807,7 +807,7 @@ accepted_theta1 <- c()
 accepted_theta2 <- c()
 accepted_RSS <- c()
 
-X_abc <- X_best # Design matrix for the selected model
+X_abc <- X_preferred # Design matrix for the selected model
 
 for (i in 1:N_samples) {
      # Draw from uniform prior
@@ -815,7 +815,7 @@ for (i in 1:N_samples) {
      theta2_draw <- runif(1, prior_lower_2, prior_upper_2)
 
      # Construct parameter vector with fixed values for non-selected params
-     theta_new <- as.numeric(theta_best)
+     theta_new <- as.numeric(theta_preferred)
      theta_new[top2_indices[1]] <- theta1_draw
      theta_new[top2_indices[2]] <- theta2_draw
 
@@ -850,16 +850,16 @@ if (n_accepted > 0) {
           pch = 16, cex = 0.4, col = rgb(0.2, 0.4, 0.8, 0.3),
           xlab = paste0(
                "theta_", top2_indices[1], " (",
-               colnames(X_best)[top2_indices[1]], ")"
+               colnames(X_preferred)[top2_indices[1]], ")"
           ),
           ylab = paste0(
                "theta_", top2_indices[2], " (",
-               colnames(X_best)[top2_indices[2]], ")"
+               colnames(X_preferred)[top2_indices[2]], ")"
           ),
           main = "Joint Posterior Distribution (Rejection ABC)"
      )
      # Mark the LS estimate
-     points(theta_best[top2_indices[1]], theta_best[top2_indices[2]],
+     points(theta_preferred[top2_indices[1]], theta_preferred[top2_indices[2]],
           pch = 4, cex = 2, col = "red", lwd = 3
      )
      legend("topright",
@@ -876,7 +876,7 @@ if (n_accepted > 0) {
           main = paste0("Marginal Posterior - theta_", top2_indices[1])
      )
      lines(density(accepted_theta1), col = "steelblue", lwd = 2)
-     abline(v = theta_best[top2_indices[1]], col = "red", lwd = 2, lty = 2)
+     abline(v = theta_preferred[top2_indices[1]], col = "red", lwd = 2, lty = 2)
      legend("topright",
           legend = c("Posterior density", "LS estimate"),
           col = c("steelblue", "red"), lty = c(1, 2), lwd = 2, bg = "white"
@@ -890,7 +890,7 @@ if (n_accepted > 0) {
           main = paste0("Marginal Posterior - theta_", top2_indices[2])
      )
      lines(density(accepted_theta2), col = "firebrick", lwd = 2)
-     abline(v = theta_best[top2_indices[2]], col = "red", lwd = 2, lty = 2)
+     abline(v = theta_preferred[top2_indices[2]], col = "red", lwd = 2, lty = 2)
      legend("topright",
           legend = c("Posterior density", "LS estimate"),
           col = c("firebrick", "red"), lty = c(1, 2), lwd = 2, bg = "white"
@@ -899,7 +899,7 @@ if (n_accepted > 0) {
      # Step 5: Summary statistics of the posterior
      cat("--- Posterior Summary Statistics ---\n\n")
      cat(sprintf("theta_%d:\n", top2_indices[1]))
-     cat(sprintf("  LS Estimate:      %.6f\n", theta_best[top2_indices[1]]))
+     cat(sprintf("  LS Estimate:      %.6f\n", theta_preferred[top2_indices[1]]))
      cat(sprintf("  Posterior Mean:    %.6f\n", mean(accepted_theta1)))
      cat(sprintf("  Posterior Median:  %.6f\n", median(accepted_theta1)))
      cat(sprintf("  Posterior SD:     %.6f\n", sd(accepted_theta1)))
@@ -909,7 +909,7 @@ if (n_accepted > 0) {
      ))
 
      cat(sprintf("theta_%d:\n", top2_indices[2]))
-     cat(sprintf("  LS Estimate:      %.6f\n", theta_best[top2_indices[2]]))
+     cat(sprintf("  LS Estimate:      %.6f\n", theta_preferred[top2_indices[2]]))
      cat(sprintf("  Posterior Mean:    %.6f\n", mean(accepted_theta2)))
      cat(sprintf("  Posterior Median:  %.6f\n", median(accepted_theta2)))
      cat(sprintf("  Posterior SD:     %.6f\n", sd(accepted_theta2)))
@@ -924,11 +924,11 @@ if (n_accepted > 0) {
      cat("WARNING: No samples were accepted. Consider increasing epsilon or N_samples.\n")
      cat("Adjusting epsilon to 5 * RSS and re-running...\n\n")
 
-     epsilon2 <- RSS_vals[best_model] * 5
+     epsilon2 <- RSS_vals[preferred_model] * 5
      for (i in 1:N_samples) {
           theta1_draw <- runif(1, prior_lower_1, prior_upper_1)
           theta2_draw <- runif(1, prior_lower_2, prior_upper_2)
-          theta_new <- as.numeric(theta_best)
+          theta_new <- as.numeric(theta_preferred)
           theta_new[top2_indices[1]] <- theta1_draw
           theta_new[top2_indices[2]] <- theta2_draw
           y_sim <- X_abc %*% theta_new
@@ -954,7 +954,7 @@ if (n_accepted > 0) {
                ylab = paste0("theta_", top2_indices[2]),
                main = "Joint Posterior Distribution (Rejection ABC)"
           )
-          points(theta_best[top2_indices[1]], theta_best[top2_indices[2]],
+          points(theta_preferred[top2_indices[1]], theta_preferred[top2_indices[2]],
                pch = 4, cex = 2, col = "red", lwd = 3
           )
 
@@ -965,7 +965,7 @@ if (n_accepted > 0) {
                main = paste0("Marginal Posterior - theta_", top2_indices[1])
           )
           lines(density(accepted_theta1), col = "steelblue", lwd = 2)
-          abline(v = theta_best[top2_indices[1]], col = "red", lwd = 2, lty = 2)
+          abline(v = theta_preferred[top2_indices[1]], col = "red", lwd = 2, lty = 2)
 
           hist(accepted_theta2,
                breaks = 40, freq = FALSE,
@@ -974,7 +974,7 @@ if (n_accepted > 0) {
                main = paste0("Marginal Posterior - theta_", top2_indices[2])
           )
           lines(density(accepted_theta2), col = "firebrick", lwd = 2)
-          abline(v = theta_best[top2_indices[2]], col = "red", lwd = 2, lty = 2)
+          abline(v = theta_preferred[top2_indices[2]], col = "red", lwd = 2, lty = 2)
 
           cat(sprintf(
                "theta_%d posterior mean: %.6f, SD: %.6f\n",
